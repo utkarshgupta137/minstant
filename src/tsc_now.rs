@@ -78,7 +78,7 @@ fn _cycles_per_sec() -> (u64, Instant, u64) {
             }
         }
         let delta = f64::abs(cycles_per_sec - old_cycles);
-        if delta / cycles_per_sec < 0.00001 {
+        if delta / cycles_per_sec < 0.000001 {
             break;
         }
         old_cycles = cycles_per_sec;
