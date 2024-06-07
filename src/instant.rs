@@ -84,6 +84,7 @@ impl Instant {
     /// otherwise.
     pub fn checked_add(&self, duration: Duration) -> Option<Instant> {
         self.0
+            .checked_sub(crate::tsc_now::cycles_from_anchor())?
             .checked_add(
                 (duration.as_nanos() as u64 as f64 / crate::tsc_now::nanos_per_cycle()) as u64,
             )
@@ -95,6 +96,7 @@ impl Instant {
     /// otherwise.
     pub fn checked_sub(&self, duration: Duration) -> Option<Instant> {
         self.0
+            .checked_sub(crate::tsc_now::cycles_from_anchor())?
             .checked_sub(
                 (duration.as_nanos() as u64 as f64 / crate::tsc_now::nanos_per_cycle()) as u64,
             )
@@ -121,13 +123,14 @@ impl Instant {
     /// assert!((instant.as_unix_nanos(&anchor) as i64 - expected as i64).abs() < 1_000_000);
     /// ```
     pub fn as_unix_nanos(&self, anchor: &Anchor) -> u64 {
-        if self.0 > anchor.cycle {
+        let cycles = self.0.wrapping_sub(crate::tsc_now::cycles_from_anchor());
+        if cycles > anchor.cycle {
             let forward_ns =
-                ((self.0 - anchor.cycle) as f64 * crate::tsc_now::nanos_per_cycle()) as u64;
+                ((cycles - anchor.cycle) as f64 * crate::tsc_now::nanos_per_cycle()) as u64;
             anchor.unix_time_ns + forward_ns
         } else {
             let backward_ns =
-                ((anchor.cycle - self.0) as f64 * crate::tsc_now::nanos_per_cycle()) as u64;
+                ((anchor.cycle - cycles) as f64 * crate::tsc_now::nanos_per_cycle()) as u64;
             anchor.unix_time_ns - backward_ns
         }
     }

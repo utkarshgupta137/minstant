@@ -41,7 +41,7 @@ pub(crate) fn cycles_from_anchor() -> u64 {
 
 #[inline]
 pub(crate) fn current_cycle() -> u64 {
-    tsc().wrapping_sub(cycles_from_anchor())
+    tsc()
 }
 
 /// Returns (1) cycles per second and (2) cycles from anchor.
