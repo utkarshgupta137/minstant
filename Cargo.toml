@@ -2,33 +2,23 @@
 name = "minstant"
 version = "0.1.7"
 authors = ["The TiKV Authors"]
-edition = "2021"
-license = "MIT"
-description = "A drop-in replacement for `std::time::Instant` that measures time with high performance and high accuracy powered by TSC"
-homepage = "https://github.com/tikv/minstant"
-repository = "https://github.com/tikv/minstant"
 documentation = "https://docs.rs/minstant"
-readme = "README.md"
+edition = "2021"
+homepage = "https://github.com/tikv/minstant"
 keywords = ["TSC", "clock", "rdtsc", "timing", "nanosecond"]
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tikv/minstant"
+description = "A drop-in replacement for `std::time::Instant` that measures time with high performance and high accuracy powered by TSC"
 
 [dependencies]
-ctor = "0.1.20"
-coarsetime = { version = "0.1", optional = true }
-web-time = "1.0"
-
-[features]
-atomic = []
-fallback-coarse = ["coarsetime"]
+ctor = "0.2.8"
 
 [dev-dependencies]
-criterion = "0.3"
-quanta = "0.9"
-rand = "0.8"
-wasm-bindgen-test = "0.3"
+criterion = "0.5"
 getrandom = { version = "0.2", features = ["js"] }
+quanta = "0.12"
+rand = "0.8"
 
 [[bench]]
 name = "criterion"

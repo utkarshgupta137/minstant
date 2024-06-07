@@ -2,18 +2,18 @@
 
 //! This module will be compiled when it's either linux_x86 or linux_x86_64.
 
+use std::cell::UnsafeCell;
 use std::time::Instant;
-use std::{cell::UnsafeCell, fs::read_to_string};
 
 static TSC_STATE: TSCState = TSCState {
-    is_tsc_available: UnsafeCell::new(false),
-    tsc_level: UnsafeCell::new(TSCLevel::Unstable),
+    cycles_per_second: UnsafeCell::new(1),
+    cycles_from_anchor: UnsafeCell::new(1),
     nanos_per_cycle: UnsafeCell::new(1.0),
 };
 
 struct TSCState {
-    is_tsc_available: UnsafeCell<bool>,
-    tsc_level: UnsafeCell<TSCLevel>,
+    cycles_per_second: UnsafeCell<u64>,
+    cycles_from_anchor: UnsafeCell<u64>,
     nanos_per_cycle: UnsafeCell<f64>,
 }
 
@@ -21,22 +21,12 @@ unsafe impl Sync for TSCState {}
 
 #[ctor::ctor]
 unsafe fn init() {
-    let tsc_level = TSCLevel::get();
-    let is_tsc_available = match &tsc_level {
-        TSCLevel::Stable { .. } => true,
-        TSCLevel::Unstable => false,
-    };
-    if is_tsc_available {
-        *TSC_STATE.nanos_per_cycle.get() = 1_000_000_000.0 / tsc_level.cycles_per_second() as f64;
-    }
-    *TSC_STATE.is_tsc_available.get() = is_tsc_available;
-    *TSC_STATE.tsc_level.get() = tsc_level;
+    let anchor = Instant::now();
+    let (cps, cfa) = cycles_per_sec(anchor);
+    *TSC_STATE.cycles_per_second.get() = cps;
+    *TSC_STATE.cycles_from_anchor.get() = cfa;
+    *TSC_STATE.nanos_per_cycle.get() = 1_000_000_000.0 / cps as f64;
     std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
-}
-
-#[inline]
-pub(crate) fn is_tsc_available() -> bool {
-    unsafe { *TSC_STATE.is_tsc_available.get() }
 }
 
 #[inline]
@@ -45,56 +35,13 @@ pub(crate) fn nanos_per_cycle() -> f64 {
 }
 
 #[inline]
+pub(crate) fn cycles_from_anchor() -> u64 {
+    unsafe { *TSC_STATE.cycles_from_anchor.get() }
+}
+
+#[inline]
 pub(crate) fn current_cycle() -> u64 {
-    match unsafe { &*TSC_STATE.tsc_level.get() } {
-        TSCLevel::Stable {
-            cycles_from_anchor, ..
-        } => tsc().wrapping_sub(*cycles_from_anchor),
-        TSCLevel::Unstable => panic!("tsc is unstable"),
-    }
-}
-
-enum TSCLevel {
-    Stable {
-        cycles_per_second: u64,
-        cycles_from_anchor: u64,
-    },
-    Unstable,
-}
-
-impl TSCLevel {
-    fn get() -> TSCLevel {
-        if !is_tsc_stable() {
-            return TSCLevel::Unstable;
-        }
-
-        let anchor = Instant::now();
-        let (cps, cfa) = cycles_per_sec(anchor);
-        TSCLevel::Stable {
-            cycles_per_second: cps,
-            cycles_from_anchor: cfa,
-        }
-    }
-
-    #[inline]
-    fn cycles_per_second(&self) -> u64 {
-        match self {
-            TSCLevel::Stable {
-                cycles_per_second, ..
-            } => *cycles_per_second,
-            TSCLevel::Unstable => panic!("tsc is unstable"),
-        }
-    }
-}
-
-/// If linux kernel detected TSCs are sync between CPUs, we can
-/// rely on the result to say tsc is stable so that no need to
-/// sync TSCs by ourselves.
-fn is_tsc_stable() -> bool {
-    let clock_source =
-        read_to_string("/sys/devices/system/clocksource/clocksource0/available_clocksource");
-
-    clock_source.map(|s| s.contains("tsc")).unwrap_or(false)
+    tsc().wrapping_sub(cycles_from_anchor())
 }
 
 /// Returns (1) cycles per second and (2) cycles from anchor.
