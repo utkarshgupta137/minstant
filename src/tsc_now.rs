@@ -94,12 +94,18 @@ fn monotonic_with_tsc() -> (Instant, u64) {
     (Instant::now(), tsc())
 }
 
+#[cfg(target_arch = "x86_64")]
 #[inline]
 fn tsc() -> u64 {
-    #[cfg(target_arch = "x86")]
-    use core::arch::x86::_rdtsc;
-    #[cfg(target_arch = "x86_64")]
-    use core::arch::x86_64::_rdtsc;
+    unsafe { core::arch::x86_64::_rdtsc() }
+}
 
-    unsafe { _rdtsc() }
+#[cfg(target_arch = "aarch64")]
+#[inline]
+fn tsc() -> u64 {
+    let count: u64;
+    unsafe {
+        ::core::arch::asm!("mrs {}, cntvct_el0", out(reg) count);
+    }
+    count
 }
